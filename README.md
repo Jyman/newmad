@@ -63,7 +63,7 @@ python -m pytest -q
 | Path | Purpose |
 |---|---|
 | `remote_radar.py` | Core: fetch, normalize, filter, rank, CLI |
-| `test_remote_radar.py` | 8 tests over saved real payloads |
+| `test_remote_radar.py` | 13 tests over saved real payloads |
 | `fixtures/` | Captured RemoteOK + HN responses for tests |
 
 ## License

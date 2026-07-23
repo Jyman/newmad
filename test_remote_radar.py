@@ -28,6 +28,22 @@ def test_guess_salary_ranges():
     assert rr._guess_salary("no numbers here") == (0, 0)
 
 
+def test_guess_salary_full_figures_and_noise():
+    # comma-separated full figures, with or without a period suffix
+    assert rr._guess_salary("$120,000/year") == (120000, 120000)
+    assert rr._guess_salary("$5k") == (5000, 5000)
+    # a bare dollar amount under 1000 with no 'k' is not a salary
+    assert rr._guess_salary("coffee is $5") == (0, 0)
+
+
+def test_fetch_hn_decodes_html_entities():
+    payload = json.dumps(
+        {"hits": [{"comment_text": "Tom &amp; Jerry &gt; O&#x27;Brien", "author": "a", "objectID": "1"}]}
+    ).encode()
+    jobs = rr.fetch_hn(raw=payload)
+    assert jobs[0].position == "Tom & Jerry > O'Brien"
+
+
 def test_job_matches_keyword_and_tags():
     j = rr.Job("t", "Senior Python Dev", "Acme", ["python", "backend"], 0, 0, "", "")
     assert j.matches("python", set())

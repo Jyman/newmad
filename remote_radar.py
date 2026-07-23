@@ -11,6 +11,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import html
 import json
 import re
 import sys
@@ -23,7 +24,7 @@ HN_ALGOLIA = (
     "https://hn.algolia.com/api/v1/search_by_date"
     "?tags=comment&query={query}&hitsPerPage=100"
 )
-UA = "remote-radar/1.0 (+https://github.com/)"
+UA = "remote-radar/1.0 (+https://github.com/Jyman/newmad)"
 
 
 @dataclass
@@ -80,12 +81,24 @@ def fetch_remoteok(raw: bytes | None = None) -> list[Job]:
     return jobs
 
 
-_SALARY_RE = re.compile(r"\$\s?(\d{2,3})\s?[kK]")
+# Matches "$120k", "$5k", "$90-130k", and "$120,000" / "$120,000/year".
+_SALARY_RE = re.compile(r"\$\s?(\d{1,3}(?:,\d{3})+|\d{1,3})\s?([kK])?")
 
 
 def _guess_salary(text: str) -> tuple[int, int]:
-    """Pull a rough salary range from free-text HN comments ($120k, $90-130k)."""
-    nums = [int(m) * 1000 for m in _SALARY_RE.findall(text)]
+    """Pull a rough salary range from free-text HN comments.
+
+    Handles $120k, $90-130k, $5k, and full figures like $120,000/year.
+    Bare dollar amounts under 1000 with no 'k' suffix are ignored as noise.
+    """
+    nums = []
+    for digits, k in _SALARY_RE.findall(text):
+        val = int(digits.replace(",", ""))
+        if k:
+            val *= 1000
+        elif val < 1000:
+            continue  # "$5" without k is not a salary
+        nums.append(val)
     if not nums:
         return 0, 0
     return min(nums), max(nums)
@@ -98,7 +111,7 @@ def fetch_hn(query: str = "remote", raw: bytes | None = None) -> list[Job]:
     jobs: list[Job] = []
     for hit in data.get("hits", []):
         text = re.sub(r"<[^>]+>", " ", hit.get("comment_text") or "")
-        text = re.sub(r"&#x27;", "'", text)
+        text = html.unescape(text)
         if not text.strip():
             continue
         first_line = text.strip().split("\n")[0][:120]
