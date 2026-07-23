@@ -26,6 +26,9 @@ python remote_radar.py --keyword rust --json
 
 # Search a specific HN "who is hiring" query, cap the output
 python remote_radar.py --hn-query golang --limit 20
+
+# Strict: require the term in the job title, not RemoteOK's tag soup
+python remote_radar.py --tags python --strict
 ```
 
 ### Options
@@ -34,6 +37,7 @@ python remote_radar.py --hn-query golang --limit 20
 |---|---|
 | `--keyword` | Substring match on title / company / tags |
 | `--tags` | Comma-separated tags that must be present |
+| `--strict` | Require keyword/tags in the job title, filtering out unrelated roles whose tag list happens to include the term |
 | `--min-salary` | Minimum of the listing's max salary, in USD |
 | `--hn-query` | Search term for HN "Who is hiring" comments |
 | `--json` | Emit JSON instead of a table |
