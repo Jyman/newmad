@@ -36,6 +36,29 @@ def test_job_matches_keyword_and_tags():
     assert not j.matches(None, {"frontend"})
 
 
+def test_strict_mode_requires_match_in_title():
+    # RemoteOK tag soup: a Marketing role tagged 'python' should be excluded
+    # in strict mode but included in the default (tag-soup) mode.
+    marketing = rr.Job("t", "Marketing Associate", "Acme", ["python", "marketing"], 0, 0, "", "")
+    real_dev = rr.Job("t", "Senior Python Engineer", "Acme", ["python"], 0, 0, "", "")
+
+    assert marketing.matches(None, {"python"})  # default: tag match passes
+    assert not marketing.matches(None, {"python"}, strict=True)  # strict: title fails
+    assert real_dev.matches(None, {"python"}, strict=True)  # strict: title hits
+
+
+def test_strict_keyword_matches_title_only():
+    j = rr.Job("t", "Data Analyst", "PythonShop", ["sql"], 0, 0, "", "")
+    assert j.matches("python", set())  # default: company contains 'python'
+    assert not j.matches("python", set(), strict=True)  # strict: title has no 'python'
+
+
+def test_filter_jobs_forwards_strict():
+    jobs = [rr.Job("t", "Marketing Associate", "c", ["python"], 0, 0, "", "")]
+    assert rr.filter_jobs(jobs, None, {"python"}, 0) == jobs
+    assert rr.filter_jobs(jobs, None, {"python"}, 0, strict=True) == []
+
+
 def test_filter_by_min_salary():
     jobs = [
         rr.Job("t", "A", "c", [], 0, 50000, "", ""),

@@ -37,12 +37,18 @@ class Job:
     location: str
     url: str
 
-    def matches(self, keyword: str | None, tags: set[str]) -> bool:
-        hay = f"{self.position} {self.company} {' '.join(self.tags)}".lower()
-        if keyword and keyword.lower() not in hay:
+    def matches(self, keyword: str | None, tags: set[str], strict: bool = False) -> bool:
+        title = self.position.lower()
+        hay = f"{title} {self.company.lower()} {' '.join(t.lower() for t in self.tags)}"
+        if keyword and keyword.lower() not in (title if strict else hay):
             return False
-        if tags and not tags & {t.lower() for t in self.tags}:
-            return False
+        if tags:
+            if strict:
+                # tag must appear in the job title, not just RemoteOK's tag soup
+                if not any(t in title for t in tags):
+                    return False
+            elif not tags & {t.lower() for t in self.tags}:
+                return False
         return True
 
 
@@ -122,10 +128,11 @@ def filter_jobs(
     keyword: str | None,
     tags: set[str],
     min_salary: int,
+    strict: bool = False,
 ) -> list[Job]:
     out = []
     for j in jobs:
-        if not j.matches(keyword, tags):
+        if not j.matches(keyword, tags, strict):
             continue
         if min_salary and j.salary_max < min_salary:
             continue
@@ -148,7 +155,7 @@ def render_table(jobs: list[Job]) -> str:
     return "\n".join([header, "-" * len(header), *rows])
 
 
-def collect(keyword, tags, min_salary, hn_query) -> list[Job]:
+def collect(keyword, tags, min_salary, hn_query, strict=False) -> list[Job]:
     jobs: list[Job] = []
     errors = []
     for name, fn in (("remoteok", fetch_remoteok), ("hn", lambda: fetch_hn(hn_query))):
@@ -158,7 +165,7 @@ def collect(keyword, tags, min_salary, hn_query) -> list[Job]:
             errors.append(f"{name}: {e}")
     for e in errors:
         print(f"warning: source failed -> {e}", file=sys.stderr)
-    return rank(filter_jobs(jobs, keyword, tags, min_salary))
+    return rank(filter_jobs(jobs, keyword, tags, min_salary, strict))
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -168,11 +175,18 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--min-salary", type=int, default=0, help="min max-salary in USD")
     p.add_argument("--hn-query", default="remote", help="HN comment search query")
     p.add_argument("--json", action="store_true", help="emit JSON instead of a table")
+    p.add_argument(
+        "--strict",
+        action="store_true",
+        help="require keyword/tags to appear in the job title, not RemoteOK's tag soup",
+    )
     p.add_argument("--limit", type=int, default=40)
     args = p.parse_args(argv)
 
     tags = {t.strip().lower() for t in args.tags.split(",") if t.strip()}
-    jobs = collect(args.keyword, tags, args.min_salary, args.hn_query)[: args.limit]
+    jobs = collect(
+        args.keyword, tags, args.min_salary, args.hn_query, args.strict
+    )[: args.limit]
 
     if args.json:
         print(json.dumps([asdict(j) for j in jobs], indent=2, ensure_ascii=False))
